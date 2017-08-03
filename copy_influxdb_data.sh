@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -o errexit -o noclobber -o nounset -o pipefail
-params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until: --name "$0" -- "$@")"
+params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until,from-abs:,until-abs: --name "$0" -- "$@")"
 eval set -- "$params"
 
 INFLUX_ARGS=
@@ -10,6 +10,7 @@ DST_DB=
 DST_RP=
 FROM=
 UNTIL=
+NOW=
 
 while true
 do
@@ -42,22 +43,29 @@ do
             UNTIL=$2
             shift 2
             ;;
+        --now)
+            NOW=$2
+            shift 2
+            ;;
         -h) cat << EOF
 Usage of $0:
+  --src-db 'database name'
+       Name of the database to copy, default: [first-db]
+  --src-rp 'rentention profile'
+       Rentention profile to copy, default: [first-rp]
+  --dst-db 'database name'
+       Database to copy into, default: [src-db][number]
+  --from 'relative time'
+       Relative time from when to copy, default: '-1h'
+  --until 'relative time until when to copy'
+       Relative time until when to copy, default: '0s'
+  --now 'current absolute time'
+       To copy data at an arbitrary time, default: [now]
   --influx 'arguments'
        Arguments for the influx command line tool.
-  --src-db 'database name'
-       Name of the database to copy
-  --src-rp 'replication profile'
-       Replication profile to copy
-  --dst-db 'database name'
-       Database to connect to the server.
-  --from 'time from when to copy'
-       For instance 'now()-1h' copies last hour
-  --until 'time until when to copy'
-       Leave empty to copy until current time
 EOF
             shift
+            exit 0
             ;;
         --)
             shift
@@ -70,8 +78,6 @@ EOF
     esac
 done
 
-TIME=$(date +%s)s
-
 # default name of source database to first profile
 if [ "$SRC_DB" = "" ]; then
     SRC_DB=$(influx $INFLUX_ARGS -execute "show databases" -format csv | tail -n +2 | head -n 1 | cut -d, -f2)
@@ -80,7 +86,7 @@ if [ "$SRC_DB" = "" ]; then
     fi
 fi
 
-# default source replication profile to last profile
+# default source rentention profile to last profile
 if [ "$SRC_RP" = "" ]; then
     SRC_RP=$(influx $INFLUX_ARGS -database $SRC_DB -execute "show retention policies" -format csv | tail -n +2 | head -n 1 | cut -d, -f1)
 fi
@@ -91,19 +97,24 @@ if [ "$DST_DB" = "" ]; then
     DST_DB="${SRC_DB}${NUMBER}"
 fi
 
-# default name of replication profile on copy to it's source
+# default name of rentention profile on copy to it's source
 if [ "$DST_RP" = "" ]; then
     DST_RP=$SRC_RP
 fi
 
+# default "until" time to now
+if [ "$NOW" = "" ]; then
+    NOW=$(date +%s)s
+fi
+
 # default "from" time to one hour ago
 if [ "$FROM" = "" ]; then
-    FROM="$TIME - 1h"
+    FROM="-1h"
 fi
 
 # default "until" time to now
 if [ "$UNTIL" = "" ]; then
-    UNTIL=$TIME
+    UNTIL="0s"
 fi
 
 echo Source:      $SRC_DB.$SRC_RP
@@ -112,9 +123,9 @@ echo From time:   $FROM
 echo Until time:  $UNTIL
 echo Progress:
 influx $INFLUX_ARGS -execute "CREATE DATABASE $DST_DB WITH DURATION inf REPLICATION 1 NAME $DST_RP"
-for MEASUREMENT in $(influx $INFLUX_ARGS -database $SRC_DB -execute "show measurements" | tail -n +4); do
+for MEASUREMENT in $(influx $INFLUX_ARGS -database $SRC_DB -execute "show measurements" -format csv | tail -n +2 | cut -d, -f2); do
     echo -n "  - $MEASUREMENT: "
-    NUMBER=$(influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *" -format csv | tail -n +2 | head -n 1 | cut -d, -f3)
+    NUMBER=$(influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $NOW + $FROM and time <= $NOW + $UNTIL GROUP BY *" -format csv | tail -n +2 | head -n 1 | cut -d, -f3)
     echo "$NUMBER records"
 done
 echo Done!
