@@ -3,6 +3,14 @@ set -o errexit -o noclobber -o nounset -o pipefail
 params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until: --name "$0" -- "$@")"
 eval set -- "$params"
 
+INFLUX_ARGS=
+SRC_DB=
+SRC_RP=
+DST_DB=
+DST_RP=
+FROM=
+UNTIL=
+
 while true
 do
     case "$1" in
@@ -64,39 +72,48 @@ done
 
 TIME=$(date +%s)s
 
-# default name of source database to "collectd"
-if [ $SRC_DB -eq "" ]; then
-    echo Assuming "--src-db=collectd"
-    SRC_DB=collectd
+# default name of source database to first profile
+if [ "$SRC_DB" = "" ]; then
+    SRC_DB=$(influx $INFLUX_ARGS -execute "show databases" -format csv | tail -n +2 | head -n 1 | cut -d, -f2)
+    if [ "$SRC_DB" = "_internal" ]; then
+        SRC_DB=$(influx $INFLUX_ARGS -execute "show databases" -format csv | tail -n +3 | head -n 1 | cut -d, -f2)
+    fi
 fi
 
-# default source replication profile to "collectd"
-if [ $SRC_RP -eq "" ]; then
-    echo Assuming "--src-rp=$SRC_DB"
-    SRC_RP=$SRC_DB
+# default source replication profile to last profile
+if [ "$SRC_RP" = "" ]; then
+    SRC_RP=$(influx $INFLUX_ARGS -database $SRC_DB -execute "show retention policies" -format csv | tail -n +2 | head -n 1 | cut -d, -f1)
 fi
 
-# default name of database copy to "{source database name}-{timestamp}"
-if [ $DST_DB -eq "" ]; then
-    $DST_DB="$SRC_DB-$TIME"
+# default name of database copy to "{source database name}{database number}"
+if [ "$DST_DB" = "" ]; then
+    NUMBER=$(influx $INFLUX_ARGS -execute "show databases" -format csv | tail -n +2 | wc -l)
+    DST_DB="${SRC_DB}${NUMBER}"
 fi
 
 # default name of replication profile on copy to it's source
-if [ $DST_RP -eq "" ]; then
-    $DST_RP=$SRC_RP
+if [ "$DST_RP" = "" ]; then
+    DST_RP=$SRC_RP
 fi
 
 # default "from" time to one hour ago
-if [ $FROM -eq "" ]; then
-    $FROM="$TIME - 1h"
+if [ "$FROM" = "" ]; then
+    FROM="$TIME - 1h"
 fi
 
 # default "until" time to now
-if [ $UNTIL -eq "" ]; then
-    $UNTIL=$TIME
+if [ "$UNTIL" = "" ]; then
+    UNTIL=$TIME
 fi
 
-influx -execute "CREATE DATABASE $DST_DB WITH DURATION inf REPLICATION 1 NAME $DST_RP"
-for MEASUREMENT in `influx -database $SRC_DB -execute "show measurements" | tail -n +4`; do
-    influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *"
+echo FROM: $SRC_DB.$SRC_RP
+echo INTO: $DST_DB.$DST_RP
+
+influx $INFLUX_ARGS -execute "CREATE DATABASE $DST_DB WITH DURATION inf REPLICATION 1 NAME $DST_RP"
+for MEASUREMENT in $(influx $INFLUX_ARGS -database $SRC_DB -execute "show measurements" | tail -n +4); do
+    echo -n "$MEASUREMENT "
+    NUMBER=$(influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *" -format csv | tail -n +2 | head -n 1 | cut -d, -f3)
+    echo $NUMBER
 done
+
+echo Done!
