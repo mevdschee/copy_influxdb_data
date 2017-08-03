@@ -3,7 +3,6 @@ set -o errexit -o noclobber -o nounset -o pipefail
 params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until,from-abs:,until-abs: --name "$0" -- "$@")"
 eval set -- "$params"
 
-INFLUX_ARGS=
 SRC_DB=
 SRC_RP=
 DST_DB=
@@ -11,14 +10,11 @@ DST_RP=
 FROM=
 UNTIL=
 NOW=
+INFLUX_ARGS=
 
 while true
 do
     case "$1" in
-        --influx)
-            INFLUX_ARGS=$2
-            shift 2
-            ;;
         --src-db)
             SRC_DB=$2
             shift 2
@@ -45,6 +41,10 @@ do
             ;;
         --now)
             NOW=$2
+            shift 2
+            ;;
+        --influx)
+            INFLUX_ARGS=$2
             shift 2
             ;;
         -h) cat << EOF
@@ -86,7 +86,7 @@ if [ "$SRC_DB" = "" ]; then
     fi
 fi
 
-# default source rentention profile to last profile
+# default source rentention profile to first profile
 if [ "$SRC_RP" = "" ]; then
     SRC_RP=$(influx $INFLUX_ARGS -database $SRC_DB -execute "show retention policies" -format csv | tail -n +2 | head -n 1 | cut -d, -f1)
 fi
