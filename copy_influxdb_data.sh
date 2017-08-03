@@ -98,5 +98,5 @@ fi
 
 influx -execute "CREATE DATABASE $DST_DB WITH DURATION inf REPLICATION 1 NAME $DST_RP"
 for MEASUREMENT in `influx -database $SRC_DB -execute "show measurements" | tail -n +4`; do
-    influx -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *"
+    influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *"
 done
