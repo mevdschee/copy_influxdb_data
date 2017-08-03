@@ -106,18 +106,15 @@ if [ "$UNTIL" = "" ]; then
     UNTIL=$TIME
 fi
 
-echo Copying InfluxDB data
-echo Timestamp:   $TIME
 echo Source:      $SRC_DB.$SRC_RP
 echo Destination: $DST_DB.$DST_RP
 echo From time:   $FROM
 echo Until time:  $UNTIL
-echo
+echo Progress:
 influx $INFLUX_ARGS -execute "CREATE DATABASE $DST_DB WITH DURATION inf REPLICATION 1 NAME $DST_RP"
 for MEASUREMENT in $(influx $INFLUX_ARGS -database $SRC_DB -execute "show measurements" | tail -n +4); do
-    echo -n "$MEASUREMENT "
+    echo -n "  - $MEASUREMENT: "
     NUMBER=$(influx $INFLUX_ARGS -execute "SELECT * INTO $DST_DB.$DST_RP.$MEASUREMENT FROM $SRC_DB.$SRC_RP.$MEASUREMENT WHERE time > $FROM and time <= $UNTIL GROUP BY *" -format csv | tail -n +2 | head -n 1 | cut -d, -f3)
-    echo $NUMBER
+    echo "$NUMBER records"
 done
-echo
 echo Done!
