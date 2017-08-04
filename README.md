@@ -1,7 +1,6 @@
 # Copy InfluxDB data
 
-When an incident has happened, or a specific test has been run on an infrastructure and you want to mark the time segment for 
-further investogation, you can use this script. 
+When an incident has happened, or a specific test has been run on an infrastructure and your system is monitored using Collectd/InfluxDB/Grafana, you may want to mark the time segment for further investigation (to avoid automatic removal due to retention rules). This script allows you to do this. 
 
 It creates a new database with an infinite rentention and copies in all metrics from a specific time range.
 
@@ -22,7 +21,7 @@ It creates a new database with an infinite rentention and copies in all metrics 
       --influx 'arguments'
            Arguments for the influx command line tool.
            
-If you started an interesting event 2 hours ago and finished it 5 minutes ago and want to save that as "test_run_1" you do:
+Let's say that you have a single database (named 'collectd') with a signle retention policy (named 'collectd') on an InfluxDB instance. If you started an interesting event 2 hours ago and finished it 5 minutes ago and want to save that as "test_run_1" you do:
 
     $ ./copy_influxdb_data.sh --dst-db test_run_1 --from -2h --until -5m
     
