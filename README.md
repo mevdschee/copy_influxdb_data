@@ -17,7 +17,7 @@ It creates a new database with an infinite rentention and copies in all metrics 
       --until 'relative time until when to copy'
            Relative time until when to copy, default: '0s'
       --now 'current absolute time'
-           To copy data at an arbitrary time, default: [now]
+           Execute as if it was run at this time, default: [now]
       --influx 'arguments'
            Arguments for the influx command line tool.
            
