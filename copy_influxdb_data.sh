@@ -59,8 +59,8 @@ Usage of $0:
        Relative time from when to copy, default: '-1h'
   --until 'relative time until when to copy'
        Relative time until when to copy, default: '0s'
-  --now 'current absolute time'
-       To copy data at an arbitrary time, default: [now]
+  --now 'absolute time'
+       Execute as if it was run at this time, default: [now]
   --influx 'arguments'
        Arguments for the influx command line tool.
 EOF
@@ -102,7 +102,7 @@ if [ "$DST_RP" = "" ]; then
     DST_RP=$SRC_RP
 fi
 
-# default "until" time to now
+# default "now" time to now
 if [ "$NOW" = "" ]; then
     NOW=$(date +%s)s
 fi
