@@ -27,9 +27,9 @@ Let's say that you have a single database (named 'collectd') with a signle reten
     
 In Grafana you can now easily switch between the databases by changing the database of the (named) InfluxDB datasource.
 
-	$ ./copy_influxdb_data.sh 
+	$ ./copy_influxdb_data.sh --dst-db test_run_1 --from -2h
 	Source: collectd.collectd
-	Destination: collectd2.collectd
+	Destination: test_run_1.collectd
 	From time: -2h
 	Until time: 0s
 	Progress:
