@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -o errexit -o noclobber -o nounset -o pipefail
-params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until,from-abs:,until-abs: --name "$0" -- "$@")"
+params="$(getopt -o h -l influx:,src-db:,src-rp:,dst-db:,dst-rp:,from:,until:,from-abs:,until-abs: --name "$0" -- "$@")"
 eval set -- "$params"
 
 SRC_DB=
